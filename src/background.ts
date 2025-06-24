@@ -7,6 +7,12 @@ const FULL_UPDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 const PARTIAL_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 const PARTIAL_UPDATE_SIZE_PER_HOUR = 12 * 1024; // 12KB of log data per hour
 
+const STORAGE_KEYS = {
+  DOMAIN_REGISTRY: 'domainRegistry',
+  LAST_FULL_UPDATE: 'lastFullUpdateTime',
+  LAST_PARTIAL_UPDATE: 'lastPartialUpdateTime'
+};
+
 let lastFullUpdateTime = 0;
 let lastPartialUpdateTime = 0;
 
@@ -14,6 +20,43 @@ let currentUpdatePromise: Promise<void> | null = null;
 
 let blockedDomains: string[] = [];
 let domainRegistry: Record<number, string> = {};
+
+
+async function initializeFromStorage(): Promise<void> {
+  try {
+    const stored = await browser.storage.local.get(Object.values(STORAGE_KEYS));
+
+    if (stored && Object.keys(stored).length > 0) {
+      domainRegistry = (stored[STORAGE_KEYS.DOMAIN_REGISTRY] as Record<number, string>) || {};
+      lastFullUpdateTime = (stored[STORAGE_KEYS.LAST_FULL_UPDATE] as number) || 0;
+      lastPartialUpdateTime = (stored[STORAGE_KEYS.LAST_PARTIAL_UPDATE] as number) || 0;
+
+      blockedDomains = Object.values(domainRegistry).sort();
+      console.log(`Loaded from storage: ${blockedDomains.length} domains`);
+    } else {
+      console.log('No data found in storage');
+    }
+
+    console.log('Triggering update after initialization');
+    await updateBlockedDomains();
+  } catch (error) {
+    console.error('Error loading data from storage:', error);
+    await updateBlockedDomains();
+  }
+}
+
+async function saveToStorage(): Promise<void> {
+  try {
+    await browser.storage.local.set({
+      [STORAGE_KEYS.DOMAIN_REGISTRY]: domainRegistry,
+      [STORAGE_KEYS.LAST_FULL_UPDATE]: lastFullUpdateTime,
+      [STORAGE_KEYS.LAST_PARTIAL_UPDATE]: lastPartialUpdateTime
+    });
+    console.log('Data saved to storage successfully');
+  } catch (error) {
+    console.error('Error saving data to storage:', error);
+  }
+}
 
 async function performFullUpdate(): Promise<void> {
   try {
@@ -137,7 +180,11 @@ async function updateBlockedDomains(): Promise<void> {
   }
 
   try {
-    currentUpdatePromise = executeDomainsUpdate();
+    currentUpdatePromise = (async () => {
+      await executeDomainsUpdate();
+      await saveToStorage();
+    })();
+
     return await currentUpdatePromise;
   } finally {
     currentUpdatePromise = null;
@@ -208,4 +255,8 @@ browser.webNavigation.onBeforeNavigate.addListener(async (details) => {
     console.log(`Blocking navigation: ${details.url} -> ${redirectUrl}`);
     await browser.tabs.update(details.tabId, { url: redirectUrl });
   }
+});
+
+initializeFromStorage().catch(error => {
+  console.error('Error during initialization:', error);
 });

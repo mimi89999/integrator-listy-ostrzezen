@@ -11,7 +11,8 @@
   },
   "permissions": [
     "webNavigation",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
