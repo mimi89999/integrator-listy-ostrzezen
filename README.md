@@ -50,7 +50,9 @@ Lista Ostrzeżeń to publiczny wykaz domen internetowych, które zostały zident
 
 ## Prywatność
 
-Rozszerzenie działa lokalnie w przeglądarce użytkownika. Nie przesyła żadnych danych o odwiedzanych stronach do zewnętrznych serwerów. Jedyną komunikacją sieciową jest pobieranie aktualnej Listy Ostrzeżeń z hole.cert.pl.
+Rozszerzenie działa lokalnie w przeglądarce użytkownika. Nie przesyła żadnych danych o odwiedzanych stronach do zewnętrznych serwerów. Jedynie gdy próbujesz wejść na niebezpieczną stronę, następuje przekierowanie na oficjalną stronę ostrzegawczą CERT Polska.
+
+Poza tym rozszerzenie komunikuje się z serwerem hole.cert.pl tylko w celu pobrania aktualnej Listy Ostrzeżeń.
 
 ## Licencja
 
