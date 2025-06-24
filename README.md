@@ -46,7 +46,7 @@ Lista Ostrzeżeń to publiczny wykaz domen internetowych, które zostały zident
 
 1. **Pobieranie listy** - rozszerzenie regularnie pobiera aktualną Listę Ostrzeżeń z serwisu hole.cert.pl
 2. **Monitorowanie ruchu** - wszystkie próby nawigacji są sprawdzane przez rozszerzenie
-3. **Blokowanie zagrożeń** - gdy użytkownik próbuje wejść na niebezpieczną stronę, zostaje przekierowany na stronę ostrzegawczą: `https://hole.cert.pl/?url=[zablokowany-adres]`
+3. **Blokowanie zagrożeń** - gdy użytkownik próbuje wejść na niebezpieczną stronę, zostaje przekierowany na stronę ostrzegawczą: `https://hole-sinkhole.cert.pl/?ilo-blocked-url=[zablokowany-adres]`
 
 ## Prywatność
 

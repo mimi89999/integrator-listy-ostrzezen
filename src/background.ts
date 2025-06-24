@@ -174,7 +174,7 @@ async function checkIfBlocked(url: string): Promise<string | null> {
     const checkDomain = domainParts.slice(i).join('.');
     if (isDomainBlocked(checkDomain)) {
       const encodedUrl = encodeURIComponent(url);
-      return `https://hole.cert.pl/?url=${encodedUrl}`;
+      return `https://hole-sinkhole.cert.pl/?ilo-blocked-url=${encodedUrl}`;
     }
   }
 
@@ -183,7 +183,7 @@ async function checkIfBlocked(url: string): Promise<string | null> {
 
 browser.webNavigation.onBeforeNavigate.addListener(async (details) => {
   const domain = extractDomain(details.url);
-  if (domain === 'hole.cert.pl') {
+  if (domain === 'hole.cert.pl' || domain === 'hole-sinkhole.cert.pl') {
     return;
   }
 
