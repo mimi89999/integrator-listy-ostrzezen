@@ -25,11 +25,13 @@ async function performFullUpdate(): Promise<void> {
       (item: { DeleteDate: string | null }) => item.DeleteDate === null
     );
 
-    domainRegistry = {};
-    activeEntries.forEach(
-      (item: { RegisterPositionId: number; DomainAddress: string }) => {
-        domainRegistry[item.RegisterPositionId] = item.DomainAddress;
-      }
+    domainRegistry = Object.fromEntries(
+      activeEntries.map(
+        (item: { RegisterPositionId: number; DomainAddress: string }) => [
+          item.RegisterPositionId,
+          item.DomainAddress
+        ]
+      )
     );
 
     const domains = activeEntries.map(
