@@ -1,4 +1,4 @@
-import browser from "webextension-polyfill";
+import browser from "./adapters/browser";
 
 const DOMAINS_URL = 'https://hole.cert.pl/domains/v2/domains.json';
 const ACTIONS_LOG_URL_TEMPLATE = 'https://hole.cert.pl/domains/v2/actions_{year}.log';

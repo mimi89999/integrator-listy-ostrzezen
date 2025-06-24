@@ -8,6 +8,13 @@ export default defineConfig({
             browser: process.env.TARGET_BROWSER || 'chrome',
         }),
     ],
+    resolve: {
+        alias: {
+            './adapters/browser': process.env.TARGET_BROWSER === 'firefox'
+                ? './adapters/browser-firefox'
+                : './adapters/browser-chrome'
+        }
+    },
     build: {
         outDir: `dist/${process.env.TARGET_BROWSER || 'chrome'}`,
         emptyOutDir: true,
