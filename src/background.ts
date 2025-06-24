@@ -164,11 +164,13 @@ async function executeDomainsUpdate(): Promise<void> {
 
   if (lastFullUpdateTime === 0 || (now - lastFullUpdateTime) >= FULL_UPDATE_INTERVAL) {
     await performFullUpdate();
+    await saveToStorage();
     return;
   }
 
   if ((now - lastPartialUpdateTime) >= PARTIAL_UPDATE_INTERVAL) {
     await performPartialUpdate();
+    await saveToStorage();
     return;
   }
 }
@@ -180,11 +182,7 @@ async function updateBlockedDomains(): Promise<void> {
   }
 
   try {
-    currentUpdatePromise = (async () => {
-      await executeDomainsUpdate();
-      await saveToStorage();
-    })();
-
+    currentUpdatePromise = executeDomainsUpdate();
     return await currentUpdatePromise;
   } finally {
     currentUpdatePromise = null;
