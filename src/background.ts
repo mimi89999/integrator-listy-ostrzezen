@@ -10,6 +10,8 @@ const PARTIAL_UPDATE_SIZE_PER_HOUR = 12 * 1024; // 12KB of log data per hour
 let lastFullUpdateTime = 0;
 let lastPartialUpdateTime = 0;
 
+let currentUpdatePromise: Promise<void> | null = null;
+
 let blockedDomains: string[] = [];
 let domainRegistry: Record<number, string> = {};
 
@@ -114,7 +116,7 @@ async function performPartialUpdate(): Promise<void> {
   }
 }
 
-async function updateBlockedDomains(): Promise<void> {
+async function executeDomainsUpdate(): Promise<void> {
   const now = Date.now();
 
   if (lastFullUpdateTime === 0 || (now - lastFullUpdateTime) >= FULL_UPDATE_INTERVAL) {
@@ -125,6 +127,20 @@ async function updateBlockedDomains(): Promise<void> {
   if ((now - lastPartialUpdateTime) >= PARTIAL_UPDATE_INTERVAL) {
     await performPartialUpdate();
     return;
+  }
+}
+
+async function updateBlockedDomains(): Promise<void> {
+  if (currentUpdatePromise) {
+    console.log('Update already in progress, waiting for it to complete...');
+    return currentUpdatePromise;
+  }
+
+  try {
+    currentUpdatePromise = executeDomainsUpdate();
+    return await currentUpdatePromise;
+  } finally {
+    currentUpdatePromise = null;
   }
 }
 
