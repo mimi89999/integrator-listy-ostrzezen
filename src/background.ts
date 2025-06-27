@@ -253,8 +253,18 @@ async function updateCanaryRules(canaryDomains: string[]): Promise<void> {
 }
 
 
-initializeFromStorage().catch(error => {
-  console.error('Error during initialization:', error);
+browser.runtime.onStartup.addListener(() => {
+  console.log('Extension started');
+  initializeFromStorage().catch(error => {
+    console.error('Error during startup initialization:', error);
+  });
+});
+
+browser.runtime.onInstalled.addListener(() => {
+  console.log('Extension installed or updated');
+  initializeFromStorage().catch(error => {
+    console.error('Error during install initialization:', error);
+  });
 });
 
 browser.idle.onStateChanged.addListener(async (newState) => {
