@@ -10,8 +10,8 @@
     "128": "icons/icon-128.png"
   },
   "permissions": [
-    "webNavigation",
-    "tabs",
+    "declarativeNetRequest",
+    "idle",
     "storage"
   ],
   "host_permissions": [

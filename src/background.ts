@@ -2,6 +2,7 @@ import browser from "./adapters/browser";
 
 const DOMAINS_URL = 'https://hole.cert.pl/domains/v2/domains.json';
 const ACTIONS_LOG_URL_TEMPLATE = 'https://hole.cert.pl/domains/v2/actions_{year}.log';
+const CANARY_DOMAIN_SUFFIX = 'blocked-site-hole-cert.pl';
 
 const FULL_UPDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 const PARTIAL_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -18,7 +19,6 @@ let lastPartialUpdateTime = 0;
 
 let currentUpdatePromise: Promise<void> | null = null;
 
-let blockedDomains: string[] = [];
 let domainRegistry: Record<number, string> = {};
 
 
@@ -31,7 +31,14 @@ async function initializeFromStorage(): Promise<void> {
       lastFullUpdateTime = (stored[STORAGE_KEYS.LAST_FULL_UPDATE] as number) || 0;
       lastPartialUpdateTime = (stored[STORAGE_KEYS.LAST_PARTIAL_UPDATE] as number) || 0;
 
-      blockedDomains = Object.values(domainRegistry).sort();
+      const blockedDomains = Object.values(domainRegistry).sort();
+      const canaryDomains = blockedDomains
+          .filter((domain: string) => domain.endsWith(`.${CANARY_DOMAIN_SUFFIX}`))
+          .sort();
+
+      await updateBlockRules(blockedDomains);
+      await updateCanaryRules(canaryDomains);
+
       console.log(`Loaded from storage: ${blockedDomains.length} domains`);
     } else {
       console.log('No data found in storage');
@@ -79,13 +86,19 @@ async function performFullUpdate(): Promise<void> {
       )
     );
 
-    const domains = activeEntries.map(
+    const blockedDomains = activeEntries.map(
       (item: { DomainAddress: string }) => item.DomainAddress
-    );
+    ).sort();
 
-    blockedDomains = domains.sort();
+    const canaryDomains = blockedDomains
+        .filter((domain: string) => domain.endsWith(`.${CANARY_DOMAIN_SUFFIX}`))
+        .sort();
+
     lastFullUpdateTime = Date.now();
     lastPartialUpdateTime = lastFullUpdateTime; // Reset partial update time as well
+
+    await updateBlockRules(blockedDomains);
+    await updateCanaryRules(canaryDomains);
 
     console.log(`Completed full domains update. Total domains: ${blockedDomains.length}`);
     console.log(`Domain registry entries: ${Object.keys(domainRegistry).length}`);
@@ -150,8 +163,10 @@ async function performPartialUpdate(): Promise<void> {
       }
     }
 
-    blockedDomains = Object.values(domainRegistry).sort();
+    const blockedDomains = Object.values(domainRegistry).sort();
     lastPartialUpdateTime = Date.now();
+
+    await updateBlockRules(blockedDomains);
 
     console.log(`Completed partial update. Total domains: ${blockedDomains.length}`);
   } catch (error) {
@@ -189,72 +204,63 @@ async function updateBlockedDomains(): Promise<void> {
   }
 }
 
-function isDomainBlocked(domain: string): boolean {
-  if (blockedDomains.length === 0) {
-    return false;
-  }
-
-  let left = 0;
-  let right = blockedDomains.length - 1;
-
-  while (left <= right) {
-    const mid = Math.floor((left + right) / 2);
-    const comparison = domain.localeCompare(blockedDomains[mid]);
-
-    if (comparison === 0) {
-      return true;
-    } else if (comparison < 0) {
-      right = mid - 1;
-    } else {
-      left = mid + 1;
-    }
-  }
-
-  return false;
-}
-
-function extractDomain(url: string): string {
+async function updateBlockRules(domains: string[]): Promise<void> {
   try {
-    const urlObj = new URL(url);
-    return urlObj.hostname;
-  } catch (e) {
-    console.error('Invalid URL:', url);
-    return '';
+    await browser.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [1],
+      addRules: [{
+        id: 1,
+        priority: 1,
+        condition: {
+          regexFilter: "^https?:\\/\\/(.+)$",
+          requestDomains: domains,
+          resourceTypes: ['main_frame']
+        },
+        action: {
+          type: 'redirect',
+          redirect: {
+            regexSubstitution: "https://hole-sinkhole.cert.pl/ilo-blocked-url/\\1"
+          }
+        }
+      }]
+    });
+    console.log('Updated session block rules');
+  } catch (error) {
+    console.error('Error setting up declarativeNetRequest rule:', error);
   }
 }
 
-async function checkIfBlocked(url: string): Promise<string | null> {
-  await updateBlockedDomains();
-
-  const domain = extractDomain(url);
-  if (!domain) return null;
-
-  const domainParts = domain.split('.');
-
-  for (let i = 0; i < domainParts.length - 1; i++) {
-    const checkDomain = domainParts.slice(i).join('.');
-    if (isDomainBlocked(checkDomain)) {
-      const encodedUrl = encodeURIComponent(url);
-      return `https://hole-sinkhole.cert.pl/?ilo-blocked-url=${encodedUrl}`;
-    }
+async function updateCanaryRules(canaryDomains: string[]): Promise<void> {
+  try {
+    await browser.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [2],
+      addRules: [{
+        id: 2,
+        priority: 1,
+        condition: {
+          regexFilter: "^https?:\\/\\/(.+)$",
+          requestDomains: canaryDomains
+        },
+        action: {
+          type: 'block'
+        }
+      }]
+    });
+    console.log('Updated session block rules');
+  } catch (error) {
+    console.error('Error setting up declarativeNetRequest rule:', error);
   }
-
-  return null;
 }
 
-browser.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  const domain = extractDomain(details.url);
-  if (domain === 'hole.cert.pl' || domain === 'hole-sinkhole.cert.pl') {
-    return;
-  }
-
-  const redirectUrl = await checkIfBlocked(details.url);
-  if (redirectUrl) {
-    console.log(`Blocking navigation: ${details.url} -> ${redirectUrl}`);
-    await browser.tabs.update(details.tabId, { url: redirectUrl });
-  }
-});
 
 initializeFromStorage().catch(error => {
   console.error('Error during initialization:', error);
 });
+
+browser.idle.onStateChanged.addListener(async (newState) => {
+  if (newState === 'active') {
+    await updateBlockedDomains();
+  }
+});
+
+browser.idle.setDetectionInterval(15);
